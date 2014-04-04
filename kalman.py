@@ -113,7 +113,7 @@ class UnscentedKalmanFilter:
         def get_kalman_gain(sigma_pts, mu, z_pts, mu_z, S, param):
             n = len(mu)
             w0 = param.l/(n + param.l) + (1 - param.alpha**2 + param.beta)
-            tmp = w0 * np.dot((sigma_pts[0] - mu), (z_pts[0] - mu_z).T)
+            Sigma_x_z_t = w0 * np.dot((sigma_pts[0] - mu), (z_pts[0] - mu_z).T)
             wi = 1/(2 * (n + param.l))
             Sigma_x_z_t = sum([wi * np.dot((s - mu), (z - mu_z).T)
                     for s, z in zip(sigma_pts[1:], z_pts[1:])])
