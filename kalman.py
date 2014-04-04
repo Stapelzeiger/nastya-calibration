@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 class UnscentedTransformParam:
-    def __init__(self, l=1, alpha=1, beta=1):
+    def __init__(self, l=1, alpha=1, beta=2):
         self.l = l
         self.alpha = alpha
         self.beta = beta
@@ -40,14 +40,15 @@ def get_cov_matrix(sigma_pts, mu, param=UnscentedTransformParam()):
     return cov
 
 
-mu = np.array([[1], [2], [3]])
-
-cov = np.array([[10, 5, 0],
-                [5, 10, 0],
-                [0, 0, 0.001]])
 
 
 def test_unscented_transf():
+    mu = np.array([[1], [2], [3]])
+
+    cov = np.array([[10, 5, 0],
+                    [5, 10, 0],
+                    [0, 0, 0.001]])
+
     # mu = np.array([[1], [2]])
 
     # cov = np.array([[5, 0],
