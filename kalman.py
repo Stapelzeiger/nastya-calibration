@@ -16,18 +16,23 @@ class UnscentedTransformParam:
 
 def get_sigma_pts(mu, cov_matrix, param=UnscentedTransformParam()):
     n = len(mu)
-    L = linalg.cholesky(cov_matrix)
-    scaling = sqrt(n + param.l)
-    sigma_pts = [mu]
-    sigma_pts += [mu + np.array([column]).T * scaling for column in L.T]
-    sigma_pts += [mu - np.array([column]).T * scaling for column in L.T]
+    if n == 1:
+        L = sqrt(cov_matrix)
+        scaling = sqrt(n + param.l)
+        sigma_pts = [mu]
+        sigma_pts.append(mu + L * scaling)
+        sigma_pts.append(mu - L * scaling)
+    else:
+        L = linalg.cholesky(cov_matrix)
+        scaling = sqrt(n + param.l)
+        sigma_pts = [mu]
+        sigma_pts += [mu + np.array([column]).T * scaling for column in L.T]
+        sigma_pts += [mu - np.array([column]).T * scaling for column in L.T]
     return sigma_pts
 
 def get_mu(sigma_pts, param=UnscentedTransformParam()):
     n = len(sigma_pts[0])
-    print(n)
     mu = sigma_pts[0] * param.l/(n + param.l)
-    print(mu)
     mu += sum([s * 1/(2 * (n + param.l)) for s in sigma_pts[1:]])
     return mu
 
@@ -77,6 +82,18 @@ def test_unscented_transf():
 
 class UnscentedKalmanFilter:
     def __init__(self, mu0, cov0, transistion, z_predict):
+        ''' mu0         :=  mean of initial state
+            cov0        :=  covariance matrix of initial state
+            transistion :=  state transition function (incl. control); takes
+                            state and control as parameters <transition(mu, u)>
+                            returns mu_bar
+            z_predict   :=  function that transforms a state into the
+                            measurement space <z_predict(mu)>
+                            This parameter just sets the default fn, it can
+                            also be given as parameter for the measurement
+                            update.
+                            returns a point in the measurement space
+        '''
         self.mu = mu0
         self.cov = cov0
         self.transistion = transistion
@@ -88,7 +105,7 @@ class UnscentedKalmanFilter:
         sigma_pts = [self.transistion(s, u) for s in sigma_pts]
         self.mu = get_mu(sigma_pts, self.param)
         self.cov = get_cov_matrix(sigma_pts, self.mu, self.param)
-        if R:
+        if R is not None:
             self.cov += R
         return (self.mu, self.cov)
 
@@ -98,18 +115,20 @@ class UnscentedKalmanFilter:
             w0 = param.l/(n + param.l) + (1 - param.alpha**2 + param.beta)
             tmp = w0 * np.dot((sigma_pts[0] - mu), (z_pts[0] - mu_z).T)
             wi = 1/(2 * (n + param.l))
-            Sigma_x_z_t += sum([wi * np.dot((s - mu), (z - mu_z).T)
+            Sigma_x_z_t = sum([wi * np.dot((s - mu), (z - mu_z).T)
                     for s, z in zip(sigma_pts[1:], z_pts[1:])])
-            return np.dot(Sigma_x_z_t, linalg.inv(S))
+            if n == 1:
+                return Sigma_x_z_t / S
+            else:
+                return np.dot(Sigma_x_z_t, linalg.inv(S))
 
         if not z_predict:
             z_predict = self.default_z_predict
         sigma_pts = get_sigma_pts(self.mu, self.cov, self.param)
-
         z_pts = [z_predict(s) for s in sigma_pts]
-        mu_z = [get_mu(z_pts) for z in z_pts]
+        mu_z = get_mu(z_pts)
         S = get_cov_matrix(z_pts, mu_z, self.param)
-        if Q:
+        if Q is not None:
             S += Q
         K = get_kalman_gain(sigma_pts, self.mu, z_pts, mu_z, S, self.param)
         self.mu = self.mu + np.dot(K, (z - mu_z))
