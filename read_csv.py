@@ -136,3 +136,24 @@ def z_predict(s):
 
 def z_predict_position(s):
     return np.array([[s.pos_x], [s.pos_y], [s.theta]])
+
+
+class NastyaState:
+    def __init__(self):
+        self.pos_x = 0
+        self.pos_y = 0
+        self.theta = 0
+        self.vel_x = 0
+        self.vel_y = 0
+        self.omega = 0
+        self.gyro_z_null = 0
+        self.acc_x_null = 0
+        self.acc_y_null = 0
+        self.imu_orientation = 0
+        self.D0 = 0.09385
+        self.D1 = 0.09385
+        self.D2 = 0.09385
+        self.R0 = 0.0175
+        self.R1 = 0.0175
+        self.R2 = 0.0175
+        self.time = 0
