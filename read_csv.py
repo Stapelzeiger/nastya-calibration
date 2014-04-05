@@ -9,13 +9,21 @@ class EncData:
     def __repr__(self):
         return 'enc@{}'.format(self.timestamp)
 
+
+def int32(val):
+    if val > 2**31-1:
+        val -= 2**32
+    if val < -2**31:
+        val += 2**32
+    return val
+
 class EncSpeed:
     def __init__(self, a, b):
         self.timestamp = b.timestamp
-        delta_t = b.timestamp - a.timestamp
-        self.w0 = (b.enc0 - a.enc0)/delta_t
-        self.w1 = (b.enc1 - a.enc1)/delta_t
-        self.w2 = (b.enc2 - a.enc2)/delta_t
+        self.delta_t = b.timestamp - a.timestamp
+        self.w0 = int32(b.enc0 - a.enc0)/self.delta_t
+        self.w1 = int32(b.enc1 - a.enc1)/self.delta_t
+        self.w2 = int32(b.enc2 - a.enc2)/self.delta_t
     def __repr__(self):
         return 'encspeed@{}'.format(self.timestamp)
 
@@ -88,4 +96,21 @@ position
 
 '''
 
-def state_transition_fn()
+def state_transition_fn(s, u):
+    ''' acc_x = (  cos(s.imu_orientation) * (u.acc_x - s.acc_x_null)
+                 + sin(s.imu_orientation) * (u.acc_y - s.acc_y_null) )
+        acc_y = (  sin(s.imu_orientation) * (u.acc_x - s.acc_x_null)
+                 + cos(s.imu_orientation) * (u.acc_y - s.acc_y_null) )
+        new.vel_x += u.delta_t * acc_x
+        new.vel_y += u.delta_t * acc_y
+        new.pos_x += s.vel_x * u.delta_t + 1/2 * u.delta_t**2 * acc_x
+        new.pos_y += s.vel_y * u.delta_t + 1/2 * u.delta_t**2 * acc_y
+        TODO pos_x,y omega contribution (arc) ?
+        new.omega = (u.gyro_z - s.gyro_z_null)
+        new.theta += new.omega * u.delta_t
+        new.D?,R? = s.D?,R?
+    '''
+
+def z_predict(s):
+    ''' vel_x,vel_y,omega,D*,R* --(robot_to_wheel_transform)->  w0,w1,w2
+    '''
