@@ -97,18 +97,24 @@ position
 '''
 
 def state_transition_fn(s, u):
-    ''' acc_x = (  cos(s.imu_orientation) * (u.acc_x - s.acc_x_null)
-                 + sin(s.imu_orientation) * (u.acc_y - s.acc_y_null) )
-        acc_y = (  sin(s.imu_orientation) * (u.acc_x - s.acc_x_null)
-                 + cos(s.imu_orientation) * (u.acc_y - s.acc_y_null) )
+    '''
+        # transform the acc-measurements onto table coords and consider the
+        # estimation of the IMU's orientation and the origin
+        acc_x = (  cos(s.imu_orientation + s.theta) * (u.acc_x - s.acc_x_null)
+                 + sin(s.imu_orientation + s.theta) * (u.acc_y - s.acc_y_null) )
+        acc_y = (  sin(s.imu_orientation + s.theta) * (u.acc_x - s.acc_x_null)
+                 + cos(s.imu_orientation + s.theta) * (u.acc_y - s.acc_y_null) )
+        # subtract the acc that is introduced by the IMU not being in the COF
+        # imu_pos_angle and imu_pos_r are constants
+        acc_x -= cos(s.imu_orientation - imu_pos_angle) * imu_pos_r * omega**2
+        acc_y -= -sin(s.imu_orientation - imu_pos_angle) * imu_pos_r * omega**2
+        # integrate in tabel coordinates
         new.vel_x += u.delta_t * acc_x
         new.vel_y += u.delta_t * acc_y
         new.pos_x += s.vel_x * u.delta_t + 1/2 * u.delta_t**2 * acc_x
         new.pos_y += s.vel_y * u.delta_t + 1/2 * u.delta_t**2 * acc_y
-        TODO pos_x,y omega contribution (arc) ?
         new.omega = (u.gyro_z - s.gyro_z_null)
         new.theta += new.omega * u.delta_t
-        new.D?,R? = s.D?,R?
     '''
 
 def z_predict(s):
