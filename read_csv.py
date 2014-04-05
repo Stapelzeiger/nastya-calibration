@@ -96,6 +96,9 @@ position
 
 '''
 
+import numpy as np
+from math import *
+
 def state_transition_fn(s, u):
     '''
         # transform the acc-measurements onto table coords and consider the
@@ -120,3 +123,13 @@ def state_transition_fn(s, u):
 def z_predict(s):
     ''' vel_x,vel_y,omega,D*,R* --(robot_to_wheel_transform)->  w0,w1,w2
     '''
+        # these constants are probably wrong...
+        beta_0 = 0
+        beta_1 = 2/3*pi
+        beta_2 = 4/3*pi
+
+        w0 = (-s.D0 * s.omega + sin(beta_0) * s.vel_x - cos(beta_0) * s.vel_y) / s.R0
+        w1 = (-s.D1 * s.omega + sin(beta_1) * s.vel_x - cos(beta_1) * s.vel_y) / s.R1
+        w2 = (-s.D2 * s.omega + sin(beta_2) * s.vel_x - cos(beta_2) * s.vel_y) / s.R2
+
+        return np.array([[w0], [w1], [w2]])
