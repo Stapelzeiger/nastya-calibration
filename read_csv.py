@@ -141,8 +141,8 @@ position
 
 def state_transition_fn(s, u):
     state_transition_fn.lastcall
-    imu_pos_angle = 0
-    imu_pos_r = 0
+    imu_pos_angle = 50.0 / 180 * pi
+    imu_pos_r = 0.742
     n = NastyaState()
     n.update_from_mu(s)
     new = NastyaState()
