@@ -4,7 +4,7 @@ from math import *
 
 class EncData:
     def __init__(self, csv_row):
-        self.timestamp = int(csv_row[0])
+        self.timestamp = 1.0 * int(csv_row[0]) / 1000000
         self.enc0 = int(csv_row[1])
         self.enc1 = int(csv_row[2])
         self.enc2 = int(csv_row[3])
@@ -44,7 +44,7 @@ class EncSpeed:
 
 class IMUData:
     def __init__(self, csv_row):
-        self.timestamp = int(csv_row[0])
+        self.timestamp = 1.0 * int(csv_row[0]) / 1000000
         self.acc_x = float(csv_row[1])
         self.acc_y = float(csv_row[2])
         self.acc_z = float(csv_row[3])
@@ -52,20 +52,32 @@ class IMUData:
         self.gyro_y = float(csv_row[5])
         self.gyro_z = float(csv_row[6])
 
+# this is the error of the state-transition + control
         R_vector = np.array([[1],
+                             [1],
+                             [1],
+                             [1],
+                             [1],
+                             [1],
+                             [1],
+                             [1],
+                             [1],
+                             [1],
+                             [1],
                              [1],
                              [1],
                              [1],
                              [1],
                              [1]])
 
-        self.R = np.identity(6) * R_vector
+        self.R = np.identity(16) * R_vector
 
     def __repr__(self):
         return 'imu@{}'.format(self.timestamp)
 
     def kalman(self, kalman_filter):
         kalman_filter.control_update(self, self.R)
+        state_transition_fn.lastcall = self.timestamp
 
 
 def read_csv(csv_file, constr):
@@ -128,12 +140,13 @@ position
 
 
 def state_transition_fn(s, u):
+    state_transition_fn.lastcall
     imu_pos_angle = 0
     imu_pos_r = 0
     n = NastyaState()
     n.update_from_mu(s)
     new = NastyaState()
-    delta_t = u.timestamp - n.time
+    delta_t = u.timestamp - state_transition_fn.lastcall
     # transform the acc-measurements onto table coords and consider the
     # estimation of the IMU's orientation and the origin
     acc_x = (  cos(n.imu_orientation + n.theta) * (u.acc_x - n.acc_x_null)
@@ -161,7 +174,7 @@ def state_transition_fn(s, u):
 
     n.time = u.timestamp
 
-    s = n.get_mu()
+    return n.get_mu()
 
 def z_predict(s):
     ''' vel_x,vel_y,omega,D*,R* --(robot_to_wheel_transform)->  w0,w1,w2
@@ -184,7 +197,7 @@ def z_predict(s):
           sin(beta_2) * nastya.vel_x -
           cos(beta_2) * nastya.vel_y) / nastya.R2
 
-    return np.array([w0, w1, w2])
+    return np.array([[w0], [w1], [w2]])
 
 def z_predict_position(s):
     return np.array([[s.pos_x], [s.pos_y], [s.theta]])
@@ -229,6 +242,40 @@ class NastyaState:
 
         self.cov = np.identity(16) * cov_vector
 
+    def __str__(self):
+        return ("pos_x ="
+               + str(self.pos_x)
+               + "\npos_y ="
+               + str(self.pos_y)
+               + "\ntheta ="
+               + str(self.theta)
+               + "\nvel_x ="
+               + str(self.vel_x)
+               + "\nvel_y ="
+               + str(self.vel_y)
+               + "\nomega ="
+               + str(self.omega)
+               + "\ngyro_z_null ="
+               + str(self.gyro_z_null)
+               + "\nacc_x_null ="
+               + str(self.acc_x_null)
+               + "\nacc_y_null ="
+               + str(self.acc_y_null)
+               + "\nimu_orientation ="
+               + str(self.imu_orientation)
+               + "\nD0 ="
+               + str(self.D0)
+               + "\nD1 ="
+               + str(self.D1)
+               + "\nD2 ="
+               + str(self.D2)
+               + "\nR0 ="
+               + str(self.R0)
+               + "\nR1 ="
+               + str(self.R1)
+               + "\nR2 ="
+               + str(self.R2))
+
     def get_mu(self):
         return np.array([[self.pos_x],
                          [self.pos_y],
@@ -248,19 +295,41 @@ class NastyaState:
                          [self.R2]])
 
     def update_from_mu(self, mu):
-        self.pos_x = mu[0]
-        self.pos_y = mu[1]
-        self.theta = mu[2]
-        self.vel_x = mu[3]
-        self.vel_y = mu[4]
-        self.omega = mu[5]
-        self.gyro_z_null = mu[6]
-        self.acc_x_null = mu[7]
-        self.acc_y_null = mu[8]
-        self.imu_orientation = mu[9]
-        self.D0 = mu[10]
-        self.D1 = mu[11]
-        self.D2 = mu[12]
-        self.R0 = mu[13]
-        self.R1 = mu[14]
-        self.R2 = mu[15]
+        self.pos_x = np.squeeze(mu[0])
+        self.pos_y = np.squeeze(mu[1])
+        self.theta = np.squeeze(mu[2])
+        self.vel_x = np.squeeze(mu[3])
+        self.vel_y = np.squeeze(mu[4])
+        self.omega = np.squeeze(mu[5])
+        self.gyro_z_null = np.squeeze(mu[6])
+        self.acc_x_null = np.squeeze(mu[7])
+        self.acc_y_null = np.squeeze(mu[8])
+        self.imu_orientation = np.squeeze(mu[9])
+        self.D0 = np.squeeze(mu[10])
+        self.D1 = np.squeeze(mu[11])
+        self.D2 = np.squeeze(mu[12])
+        self.R0 = np.squeeze(mu[13])
+        self.R1 = np.squeeze(mu[14])
+        self.R2 = np.squeeze(mu[15])
+
+
+
+from kalman import *
+
+nastya = NastyaState()
+state_transition_fn.lastcall = imu_data[0].timestamp
+UKF = UnscentedKalmanFilter(nastya.get_mu(),
+                            nastya.cov,
+                            state_transition_fn,
+                            z_predict)
+
+UKF.param.l = 0.5
+UKF.param.alpha = 0.5
+
+for x in data:
+    x.kalman(UKF)
+    print("mu =")
+    print(UKF.mu)
+    print("cov =")
+    print(UKF.cov)
+
