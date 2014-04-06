@@ -81,10 +81,10 @@ def test_unscented_transf():
 
 
 class UnscentedKalmanFilter:
-    def __init__(self, mu0, cov0, transistion, z_predict):
+    def __init__(self, mu0, cov0, transition, z_predict):
         ''' mu0         :=  mean of initial state
             cov0        :=  covariance matrix of initial state
-            transistion :=  state transition function (incl. control); takes
+            transition :=  state transition function (incl. control); takes
                             state and control as parameters <transition(mu, u)>
                             returns mu_bar
             z_predict   :=  function that transforms a state into the
@@ -96,13 +96,13 @@ class UnscentedKalmanFilter:
         '''
         self.mu = mu0
         self.cov = cov0
-        self.transistion = transistion
+        self.transition = transition
         self.default_z_predict = z_predict
         self.param = UnscentedTransformParam()
 
     def control_update(self, u, R=None):
         sigma_pts = get_sigma_pts(self.mu, self.cov, self.param)
-        sigma_pts = [self.transistion(s, u) for s in sigma_pts]
+        sigma_pts = [self.transition(s, u) for s in sigma_pts]
         self.mu = get_mu(sigma_pts, self.param)
         self.cov = get_cov_matrix(sigma_pts, self.mu, self.param)
         if R is not None:
