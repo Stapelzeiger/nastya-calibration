@@ -4,7 +4,7 @@ from math import *
 
 class EncData:
     def __init__(self, csv_row):
-        self.timestamp = 1.0 * int(csv_row[0]) / 1000000
+        self.timestamp = int(csv_row[0])
         self.enc0 = int(csv_row[1])
         self.enc1 = int(csv_row[2])
         self.enc2 = int(csv_row[3])
@@ -22,7 +22,7 @@ def int32(val):
 class EncSpeed:
     def __init__(self, a, b):
         self.timestamp = b.timestamp
-        self.delta_t = b.timestamp - a.timestamp
+        self.delta_t = int32(b.timestamp - a.timestamp) * 1.0 / 1000000
         self.w0 = int32(b.enc0 - a.enc0)/self.delta_t
         self.w1 = int32(b.enc1 - a.enc1)/self.delta_t
         self.w2 = int32(b.enc2 - a.enc2)/self.delta_t
@@ -44,7 +44,7 @@ class EncSpeed:
 
 class IMUData:
     def __init__(self, csv_row):
-        self.timestamp = 1.0 * int(csv_row[0]) / 1000000
+        self.timestamp = int(csv_row[0])
         self.acc_x = float(csv_row[1])
         self.acc_y = float(csv_row[2])
         self.acc_z = float(csv_row[3])
@@ -146,7 +146,7 @@ def state_transition_fn(s, u):
     n = NastyaState()
     n.update_from_mu(s)
     new = NastyaState()
-    delta_t = u.timestamp - state_transition_fn.lastcall
+    delta_t = int32(u.timestamp - state_transition_fn.lastcall) * 1.0 / 1000000
     # transform the acc-measurements onto table coords and consider the
     # estimation of the IMU's orientation and the origin
     acc_x = (  cos(n.imu_orientation + n.theta) * (u.acc_x - n.acc_x_null)
