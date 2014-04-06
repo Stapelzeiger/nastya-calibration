@@ -90,7 +90,7 @@ def read_csv(csv_file, constr):
             print('invalid datapoint line: ' + str(line+1) + ' (' + str(e) + ')')
     return data
 
-enc_data = sorted(read_csv('data/enc_test.csv', EncData), key=lambda x: x.timestamp)
+enc_data = sorted(read_csv('data/01.path_', EncData), key=lambda x: x.timestamp)
 imu_data = sorted(read_csv('data/imu_test.csv', IMUData), key=lambda x: x.timestamp)
 
 enc_speed_data = []
