@@ -1,6 +1,10 @@
 import csv
 import numpy as np
 from math import *
+import matplotlib.pyplot as plt
+import matplotlib.pylab as pylab
+
+acc_x_global = [0, 0]
 
 class EncData:
     def __init__(self, csv_row):
@@ -21,15 +25,16 @@ def int32(val):
 
 class EncSpeed:
     def __init__(self, a, b):
+        ENCODER_RESOLUTION = 16384
         self.timestamp = b.timestamp
         self.delta_t = int32(b.timestamp - a.timestamp) * 1.0 / 1000000
-        self.w0 = int32(b.enc0 - a.enc0)/self.delta_t
-        self.w1 = int32(b.enc1 - a.enc1)/self.delta_t
-        self.w2 = int32(b.enc2 - a.enc2)/self.delta_t
+        self.w0 = int32(b.enc0 - a.enc0)/self.delta_t / ENCODER_RESOLUTION * 2 * pi
+        self.w1 = int32(b.enc1 - a.enc1)/self.delta_t / ENCODER_RESOLUTION * 2 * pi
+        self.w2 = int32(b.enc2 - a.enc2)/self.delta_t / ENCODER_RESOLUTION * 2 * pi
 
-        Q_vector = np.array([[1],
-                             [1],
-                             [1]])
+        Q_vector = np.array([[(0.1/self.delta_t)**2],
+                             [(0.1/self.delta_t)**2],
+                             [(0.1/self.delta_t)**2]])
 
         self.Q = np.identity(3) * Q_vector
 
@@ -53,22 +58,22 @@ class IMUData:
         self.gyro_z = float(csv_row[6])
 
 # this is the error of the state-transition + control
-        R_vector = np.array([[1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1],
-                             [1]])
+        R_vector = np.array([[0.00001],   # pos_x
+                             [0.00001],   # pos_y
+                             [0.00001],   # theta
+                             [5**2],   # vel_x
+                             [5**2],   # vel_y
+                             [0.001],   # omega
+                             [0.00001],   # gyro_z_null
+                             [0.00001],   # acc_x_null
+                             [0.00001],   # acc_y_null
+                             [0.00001],   # imu_orientation
+                             [0.000000000001],   # D0
+                             [0.000000000001],   # D1
+                             [0.000000000001],   # D2
+                             [0.000000000001],   # R0
+                             [0.000000000001],   # R1
+                             [0.000000000001]])  # R2
 
         self.R = np.identity(16) * R_vector
 
@@ -77,6 +82,9 @@ class IMUData:
 
     def kalman(self, kalman_filter):
         kalman_filter.control_update(self, self.R)
+        kalman_filter.measurement_update(np.array([[self.gyro_z]]),
+                                         lambda s: np.array([[s[5][0]]]),
+                                         np.array([[1**2]]))
         state_transition_fn.lastcall = self.timestamp
 
 
@@ -90,20 +98,16 @@ def read_csv(csv_file, constr):
             print('invalid datapoint line: ' + str(line+1) + ' (' + str(e) + ')')
     return data
 
-enc_data = sorted(read_csv('data/01.path_', EncData), key=lambda x: x.timestamp)
-imu_data = sorted(read_csv('data/imu_test.csv', IMUData), key=lambda x: x.timestamp)
+enc_data = sorted(read_csv('data/enc_01.csv', EncData), key=lambda x: x.timestamp)
+imu_data = sorted(read_csv('data/imu_01.csv', IMUData), key=lambda x: x.timestamp)
 
 enc_speed_data = []
 for i in range(len(enc_data) - 1):
     enc_speed_data.append(EncSpeed(enc_data[i], enc_data[i+1]))
 
-print(enc_data)
-print(imu_data)
-print(enc_speed_data)
 
 
 data = sorted((enc_speed_data + imu_data), key=lambda x: x.timestamp)
-print(data)
 
 
 
@@ -157,13 +161,16 @@ def state_transition_fn(s, u):
     # imu_pos_angle and imu_pos_r are constants
     acc_x -= cos(n.imu_orientation - imu_pos_angle) * imu_pos_r * n.omega**2
     acc_y -= -sin(n.imu_orientation - imu_pos_angle) * imu_pos_r * n.omega**2
+
+    acc_x_global[0] = acc_x
+    acc_x_global[1] = acc_y
     # integrate in tabel coordinates
-    new.vel_x += delta_t * acc_x
-    new.vel_y += delta_t * acc_y
-    new.pos_x += n.vel_x * delta_t + 1/2 * delta_t**2 * acc_x
-    new.pos_y += n.vel_y * delta_t + 1/2 * delta_t**2 * acc_y
+    new.vel_x = n.vel_x + delta_t * acc_x
+    new.vel_y = n.vel_y + delta_t * acc_y
+    new.pos_x = n.pos_x + n.vel_x * delta_t + 1/2 * delta_t**2 * acc_x
+    new.pos_y = n.pos_y + n.vel_y * delta_t + 1/2 * delta_t**2 * acc_y
     new.omega = (u.gyro_z - n.gyro_z_null)
-    new.theta += new.omega * delta_t
+    new.theta = n.theta + new.omega * delta_t
 
     n.vel_x = new.vel_x
     n.vel_y = new.vel_y
@@ -211,10 +218,10 @@ class NastyaState:
         self.vel_x = 0
         self.vel_y = 0
         self.omega = 0
-        self.gyro_z_null = 0
-        self.acc_x_null = 0
-        self.acc_y_null = 0
-        self.imu_orientation = 0
+        self.gyro_z_null = -0.01
+        self.acc_x_null = 0.73
+        self.acc_y_null = 0.05
+        self.imu_orientation = -0.42 + pi
         self.D0 = 0.09385
         self.D1 = 0.09385
         self.D2 = 0.09385
@@ -223,22 +230,22 @@ class NastyaState:
         self.R2 = 0.0175
         self.time = 0
 
-        cov_vector = np.array([[1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1],
-                               [1]])
+        cov_vector = np.array([[0.0000001],         # pos_x
+                               [0.0000001],         # pos_y
+                               [0.0000001],         # theta
+                               [0.0000001],         # vel_x
+                               [0.0000001],         # vel_y
+                               [0.001],         # omega
+                               [0.2**2],   # gyro_z_null
+                               [0.2**2],    # acc_x_null
+                               [0.2**2],    # acc_y_null
+                               [0.1**2],    # imu_orientation
+                               [0.0000005**2],  # D0
+                               [0.0000005**2],  # D1
+                               [0.0000005**2],  # D2
+                               [0.0000001**2],  # R0
+                               [0.0000001**2],  # R1
+                               [0.0000001**2]]) # R2
 
         self.cov = np.identity(16) * cov_vector
 
@@ -313,7 +320,6 @@ class NastyaState:
         self.R2 = np.squeeze(mu[15])
 
 
-
 from kalman import *
 
 nastya = NastyaState()
@@ -326,10 +332,41 @@ UKF = UnscentedKalmanFilter(nastya.get_mu(),
 UKF.param.l = 0.5
 UKF.param.alpha = 0.5
 
+x_pos = []
+x_vel = []
+x_acc = []
+y_pos = []
+y_vel = []
+y_acc = []
+theta = []
+omega = []
+
 for x in data:
     x.kalman(UKF)
-    print("mu =")
-    print(UKF.mu)
-    print("cov =")
-    print(UKF.cov)
+    x_pos.append(UKF.mu[0][0])
+    x_vel.append(UKF.mu[3][0])
+    x_acc.append(acc_x_global[0])
+    y_pos.append(UKF.mu[1][0])
+    y_vel.append(UKF.mu[4][0])
+    y_acc.append(acc_x_global[1])
+    theta.append(UKF.mu[2][0])
+    omega.append(UKF.mu[5][0])
+print("mu =")
+print(UKF.mu)
+print("cov =")
+print(UKF.cov)
 
+fig = plt.figure()
+plt.plot(x_pos)
+plt.plot(x_vel)
+plt.plot(x_acc)
+fig2 = plt.figure()
+plt.plot(y_pos)
+plt.plot(y_vel)
+plt.plot(y_acc)
+fig3 = plt.figure()
+plt.plot(theta)
+plt.plot(omega)
+pylab.matshow(UKF.cov, cmap=pylab.cm.gray)
+pylab.show()
+plt.show()
