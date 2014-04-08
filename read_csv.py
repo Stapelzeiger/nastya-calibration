@@ -221,7 +221,7 @@ def state_transition_fn(s, u):
     # transform the acc-measurements onto table coords and consider the
     # estimation of the IMU's orientation and the origin
     acc_x = (  cos(n.imu_orientation + n.theta) * (u.acc_x - n.acc_x_null)
-             + sin(n.imu_orientation + n.theta) * (u.acc_y - n.acc_y_null) )
+             - sin(n.imu_orientation + n.theta) * (u.acc_y - n.acc_y_null) )
     acc_y = (  sin(n.imu_orientation + n.theta) * (u.acc_x - n.acc_x_null)
              + cos(n.imu_orientation + n.theta) * (u.acc_y - n.acc_y_null) )
     # subtract the acc that is introduced by the IMU not being in the COF
