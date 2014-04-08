@@ -4,6 +4,8 @@ from math import *
 import matplotlib.pyplot as plt
 import matplotlib.pylab as pylab
 
+import robot_base_mixer
+
 acc_x_global = [0, 0]
 
 class EncData:
@@ -108,6 +110,69 @@ for i in range(len(enc_data) - 1):
 
 
 data = sorted((enc_speed_data + imu_data), key=lambda x: x.timestamp)
+
+
+
+def simple_pos_integrate_from_enc_speed(enc_speed_data):
+    px = 0
+    py = 0
+    theta = 0
+    for enc in enc_speed_data:
+        vx, vy, omega = robot_base_mixer.wheel_to_robot([enc.w0, enc.w1, enc.w2])
+        px += vx * enc.delta_t
+        py += vy * enc.delta_t
+        theta += omega * enc.delta_t
+
+    print('enc integration px py theta')
+    print(px)
+    print(py)
+    print(theta)
+    return (px, py, theta)
+
+def simple_pos_integrate_from_imu(imu_data):
+    zax = 0
+    zay = 0
+    zgz = 0
+    cnt = 0
+    first_timestamp = imu_data[0].timestamp
+    for imu in imu_data: # find imu zero during fist 2.5 seconds
+        if 1.0*int32(imu.timestamp - first_timestamp)/1000000 > 2.5:
+            break
+        zax += imu.acc_x
+        zay += imu.acc_y
+        zgz += imu.gyro_z
+        cnt += 1
+    zax /= cnt
+    zay /= cnt
+    zgz /= cnt
+
+    px = 0
+    py = 0
+    theta = 0
+    vx = 0
+    vy = 0
+    omega = 0
+    prev_timestamp = imu_data[0].timestamp
+    for imu in imu_data:
+        delta_t = 1.0*int32(imu.timestamp - prev_timestamp)/1000000
+        prev_timestamp = imu.timestamp
+        px += vx * delta_t + delta_t**2 / 2 *(imu.acc_x - zax)
+        py += vy * delta_t + delta_t**2 / 2 *(imu.acc_y - zay)
+        theta += omega * delta_t + delta_t**2 / 2 *(imu.gyro_z - zgz)
+        vx += (imu.acc_x - zax) * delta_t
+        vy += (imu.acc_y - zay) * delta_t
+        omega += (imu.gyro_z - zgz) * delta_t
+    print('imu integration: px py theta vx vy omega')
+    print(px)
+    print(py)
+    print(theta)
+    print(vx)
+    print(vy)
+    print(omega)
+    return (px, py, theta)
+
+simple_pos_integrate_from_enc_speed(enc_speed_data)
+simple_pos_integrate_from_imu(imu_data)
 
 
 
@@ -318,6 +383,7 @@ class NastyaState:
         self.R0 = np.squeeze(mu[13])
         self.R1 = np.squeeze(mu[14])
         self.R2 = np.squeeze(mu[15])
+        return self
 
 
 from kalman import *
@@ -341,32 +407,32 @@ y_acc = []
 theta = []
 omega = []
 
-for x in data:
-    x.kalman(UKF)
-    x_pos.append(UKF.mu[0][0])
-    x_vel.append(UKF.mu[3][0])
-    x_acc.append(acc_x_global[0])
-    y_pos.append(UKF.mu[1][0])
-    y_vel.append(UKF.mu[4][0])
-    y_acc.append(acc_x_global[1])
-    theta.append(UKF.mu[2][0])
-    omega.append(UKF.mu[5][0])
-print("mu =")
-print(UKF.mu)
-print("cov =")
-print(UKF.cov)
+# for x in data:
+#     x.kalman(UKF)
+#     x_pos.append(UKF.mu[0][0])
+#     x_vel.append(UKF.mu[3][0])
+#     x_acc.append(acc_x_global[0])
+#     y_pos.append(UKF.mu[1][0])
+#     y_vel.append(UKF.mu[4][0])
+#     y_acc.append(acc_x_global[1])
+#     theta.append(UKF.mu[2][0])
+#     omega.append(UKF.mu[5][0])
+# print("mu =")
+# print(NastyaState().update_from_mu(UKF.mu))
+# print("cov =")
+# print(UKF.cov)
 
-fig = plt.figure()
-plt.plot(x_pos)
-plt.plot(x_vel)
-plt.plot(x_acc)
-fig2 = plt.figure()
-plt.plot(y_pos)
-plt.plot(y_vel)
-plt.plot(y_acc)
-fig3 = plt.figure()
-plt.plot(theta)
-plt.plot(omega)
-pylab.matshow(UKF.cov, cmap=pylab.cm.gray)
-pylab.show()
-plt.show()
+# fig = plt.figure()
+# plt.plot(x_pos)
+# plt.plot(x_vel)
+# plt.plot(x_acc)
+# fig2 = plt.figure()
+# plt.plot(y_pos)
+# plt.plot(y_vel)
+# plt.plot(y_acc)
+# fig3 = plt.figure()
+# plt.plot(theta)
+# plt.plot(omega)
+# pylab.matshow(UKF.cov, cmap=pylab.cm.gray)
+# pylab.show()
+# plt.show()
