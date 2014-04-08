@@ -39,8 +39,8 @@ def wheel_to_robot(dwheels, beta=default_beta, D=default_D, r=default_r):
     return (dx, dy, dtheta)
 
 def robot_to_wheel(dx, dy, dtheta, beta=default_beta, D=default_D, r=default_r):
-    w0 = (-D[0] * dtheta + sin(beta[0]) * dx - cos(beta[0]) * dy) / R[0]
-    w1 = (-D[1] * dtheta + sin(beta[1]) * dx - cos(beta[1]) * dy) / R[1]
-    w2 = (-D[2] * dtheta + sin(beta[2]) * dx - cos(beta[2]) * dy) / R[2]
+    w0 = (-D[0] * dtheta + sin(beta[0]) * dx - cos(beta[0]) * dy) / r[0]
+    w1 = (-D[1] * dtheta + sin(beta[1]) * dx - cos(beta[1]) * dy) / r[1]
+    w2 = (-D[2] * dtheta + sin(beta[2]) * dx - cos(beta[2]) * dy) / r[2]
 
     return (w0, w1, w2)
