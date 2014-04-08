@@ -317,37 +317,37 @@ class NastyaState:
         self.cov = np.identity(16) * cov_vector
 
     def __str__(self):
-        return ("pos_x ="
+        return ("pos_x = "
                + str(self.pos_x)
-               + "\npos_y ="
+               + "\npos_y = "
                + str(self.pos_y)
-               + "\ntheta ="
+               + "\ntheta = "
                + str(self.theta)
-               + "\nvel_x ="
+               + "\nvel_x = "
                + str(self.vel_x)
-               + "\nvel_y ="
+               + "\nvel_y = "
                + str(self.vel_y)
-               + "\nomega ="
+               + "\nomega = "
                + str(self.omega)
-               + "\ngyro_z_null ="
+               + "\ngyro_z_null = "
                + str(self.gyro_z_null)
-               + "\nacc_x_null ="
+               + "\nacc_x_null = "
                + str(self.acc_x_null)
-               + "\nacc_y_null ="
+               + "\nacc_y_null = "
                + str(self.acc_y_null)
-               + "\nimu_orientation ="
+               + "\nimu_orientation = "
                + str(self.imu_orientation)
-               + "\nD0 ="
+               + "\nD0 = "
                + str(self.D0)
-               + "\nD1 ="
+               + "\nD1 = "
                + str(self.D1)
-               + "\nD2 ="
+               + "\nD2 = "
                + str(self.D2)
-               + "\nR0 ="
+               + "\nR0 = "
                + str(self.R0)
-               + "\nR1 ="
+               + "\nR1 = "
                + str(self.R1)
-               + "\nR2 ="
+               + "\nR2 = "
                + str(self.R2))
 
     def get_mu(self):
