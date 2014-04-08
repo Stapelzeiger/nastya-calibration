@@ -34,9 +34,9 @@ class EncSpeed:
         self.w1 = int32(b.enc1 - a.enc1)/self.delta_t / ENCODER_RESOLUTION * 2 * pi
         self.w2 = int32(b.enc2 - a.enc2)/self.delta_t / ENCODER_RESOLUTION * 2 * pi
 
-        Q_vector = np.array([[(0.1/self.delta_t)**2],
-                             [(0.1/self.delta_t)**2],
-                             [(0.1/self.delta_t)**2]])
+        Q_vector = np.array([[(0.00005)**2],
+                             [(0.00005)**2],
+                             [(0.00005)**2]])
 
         self.Q = np.identity(3) * Q_vector
 
@@ -60,22 +60,22 @@ class IMUData:
         self.gyro_z = float(csv_row[6])
 
 # this is the error of the state-transition + control
-        R_vector = np.array([[0.00001],   # pos_x
-                             [0.00001],   # pos_y
-                             [0.00001],   # theta
-                             [5**2],   # vel_x
-                             [5**2],   # vel_y
-                             [0.001],   # omega
-                             [0.00001],   # gyro_z_null
-                             [0.00001],   # acc_x_null
-                             [0.00001],   # acc_y_null
-                             [0.00001],   # imu_orientation
-                             [0.000000000001],   # D0
-                             [0.000000000001],   # D1
-                             [0.000000000001],   # D2
-                             [0.000000000001],   # R0
-                             [0.000000000001],   # R1
-                             [0.000000000001]])  # R2
+        R_vector = np.array([[0.0000000000001],   # pos_x
+                             [0.0000000000001],   # pos_y
+                             [0.0000000000001],   # theta
+                             [0.08**2],   # vel_x
+                             [0.08**2],   # vel_y
+                             [0.0000003**2],   # omega
+                             [0.000000000001],   # gyro_z_null
+                             [0.000000000001],   # acc_x_null
+                             [0.000000000001],   # acc_y_null
+                             [0.0000000000000001],   # imu_orientation
+                             [0.0000000000000001],   # D0
+                             [0.0000000000000001],   # D1
+                             [0.0000000000000001],   # D2
+                             [0.0000000000000001],   # R0
+                             [0.0000000000000001],   # R1
+                             [0.0000000000000001]])  # R2
 
         self.R = np.identity(16) * R_vector
 
@@ -84,9 +84,9 @@ class IMUData:
 
     def kalman(self, kalman_filter):
         kalman_filter.control_update(self, self.R)
-        kalman_filter.measurement_update(np.array([[self.gyro_z]]),
-                                         lambda s: np.array([[s[5][0]]]),
-                                         np.array([[1**2]]))
+        # kalman_filter.measurement_update(np.array([[self.gyro_z]]),
+        #                                  lambda s: np.array([[s[5][0]]]),
+        #                                  np.array([[0.5**2]]))
         state_transition_fn.lastcall = self.timestamp
 
 
@@ -119,8 +119,8 @@ def simple_pos_integrate_from_enc_speed(enc_speed_data):
     theta = 0
     for enc in enc_speed_data:
         vx, vy, omega = robot_base_mixer.wheel_to_robot([enc.w0, enc.w1, enc.w2])
-        px += vx * enc.delta_t
-        py += vy * enc.delta_t
+        px += (vx * cos(theta) - vy * sin(theta)) * enc.delta_t
+        py += (vx * sin(theta) + vy * cos(theta)) * enc.delta_t
         theta += omega * enc.delta_t
 
     print('enc integration px py theta')
@@ -156,11 +156,13 @@ def simple_pos_integrate_from_imu(imu_data):
     for imu in imu_data:
         delta_t = 1.0*int32(imu.timestamp - prev_timestamp)/1000000
         prev_timestamp = imu.timestamp
-        px += vx * delta_t + delta_t**2 / 2 *(imu.acc_x - zax)
-        py += vy * delta_t + delta_t**2 / 2 *(imu.acc_y - zay)
+        acc_x = (imu.acc_x - zax)*cos(theta) - (imu.acc_y - zay)*sin(theta)
+        acc_y = (imu.acc_x - zax)*sin(theta) + (imu.acc_y - zay)*cos(theta)
+        px += vx * delta_t + delta_t**2 / 2 * acc_x
+        py += vy * delta_t + delta_t**2 / 2 * acc_y
         theta += omega * delta_t + delta_t**2 / 2 *(imu.gyro_z - zgz)
-        vx += (imu.acc_x - zax) * delta_t
-        vy += (imu.acc_y - zay) * delta_t
+        vx += acc_x * delta_t
+        vy += acc_y * delta_t
         omega += (imu.gyro_z - zgz) * delta_t
     print('imu integration: px py theta vx vy omega')
     print(px)
@@ -234,7 +236,7 @@ def state_transition_fn(s, u):
     new.vel_y = n.vel_y + delta_t * acc_y
     new.pos_x = n.pos_x + n.vel_x * delta_t + 1/2 * delta_t**2 * acc_x
     new.pos_y = n.pos_y + n.vel_y * delta_t + 1/2 * delta_t**2 * acc_y
-    new.omega = (u.gyro_z - n.gyro_z_null)
+    # new.omega = (u.gyro_z - n.gyro_z_null)
     new.theta = n.theta + new.omega * delta_t
 
     n.vel_x = new.vel_x
@@ -284,9 +286,9 @@ class NastyaState:
         self.vel_y = 0
         self.omega = 0
         self.gyro_z_null = -0.01
-        self.acc_x_null = 0.73
+        self.acc_x_null = 0.743
         self.acc_y_null = 0.05
-        self.imu_orientation = -0.42 + pi
+        self.imu_orientation = 2.7448
         self.D0 = 0.09385
         self.D1 = 0.09385
         self.D2 = 0.09385
@@ -300,17 +302,17 @@ class NastyaState:
                                [0.0000001],         # theta
                                [0.0000001],         # vel_x
                                [0.0000001],         # vel_y
-                               [0.001],         # omega
-                               [0.2**2],   # gyro_z_null
-                               [0.2**2],    # acc_x_null
-                               [0.2**2],    # acc_y_null
-                               [0.1**2],    # imu_orientation
-                               [0.0000005**2],  # D0
-                               [0.0000005**2],  # D1
-                               [0.0000005**2],  # D2
-                               [0.0000001**2],  # R0
-                               [0.0000001**2],  # R1
-                               [0.0000001**2]]) # R2
+                               [0.0000001],         # omega
+                               [0.01**2],   # gyro_z_null
+                               [0.01**2],    # acc_x_null
+                               [0.01**2],    # acc_y_null
+                               [0.05**2],    # imu_orientation
+                               [0.0000000005**2],  # D0
+                               [0.0000000005**2],  # D1
+                               [0.0000000005**2],  # D2
+                               [0.0000000001**2],  # R0
+                               [0.0000000001**2],  # R1
+                               [0.0000000001**2]]) # R2
 
         self.cov = np.identity(16) * cov_vector
 
@@ -407,32 +409,32 @@ y_acc = []
 theta = []
 omega = []
 
-# for x in data:
-#     x.kalman(UKF)
-#     x_pos.append(UKF.mu[0][0])
-#     x_vel.append(UKF.mu[3][0])
-#     x_acc.append(acc_x_global[0])
-#     y_pos.append(UKF.mu[1][0])
-#     y_vel.append(UKF.mu[4][0])
-#     y_acc.append(acc_x_global[1])
-#     theta.append(UKF.mu[2][0])
-#     omega.append(UKF.mu[5][0])
-# print("mu =")
-# print(NastyaState().update_from_mu(UKF.mu))
-# print("cov =")
-# print(UKF.cov)
+for x in data:
+    x.kalman(UKF)
+    x_pos.append(UKF.mu[0][0])
+    x_vel.append(UKF.mu[3][0])
+    x_acc.append(acc_x_global[0])
+    y_pos.append(UKF.mu[1][0])
+    y_vel.append(UKF.mu[4][0])
+    y_acc.append(acc_x_global[1])
+    theta.append(UKF.mu[2][0])
+    omega.append(UKF.mu[5][0])
+print("mu =")
+print(NastyaState().update_from_mu(UKF.mu))
+print("cov =")
+print(UKF.cov)
 
-# fig = plt.figure()
-# plt.plot(x_pos)
-# plt.plot(x_vel)
-# plt.plot(x_acc)
-# fig2 = plt.figure()
-# plt.plot(y_pos)
-# plt.plot(y_vel)
-# plt.plot(y_acc)
-# fig3 = plt.figure()
-# plt.plot(theta)
-# plt.plot(omega)
-# pylab.matshow(UKF.cov, cmap=pylab.cm.gray)
-# pylab.show()
-# plt.show()
+fig = plt.figure()
+plt.plot(x_pos)
+plt.plot(x_vel)
+plt.plot(x_acc)
+fig2 = plt.figure()
+plt.plot(y_pos)
+plt.plot(y_vel)
+plt.plot(y_acc)
+fig3 = plt.figure()
+plt.plot(theta)
+plt.plot(omega)
+pylab.matshow(UKF.cov, cmap=pylab.cm.gray)
+pylab.show()
+plt.show()
